@@ -1,7 +1,7 @@
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import APIRouter, HTTPException, Response, status
-
+from fastapi import APIRouter, HTTPException, Response, status, Query
+from typing import Literal
 from database import db
 from schemas import ExpenseCreate, ExpenseResponse
 
@@ -35,6 +35,11 @@ def get_expenses(
     category: str | None = None,
     min_amount: float | None = None,
     max_amount: float | None = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1),
+    sort_by: Literal["amount", "date"] = "date",
+    order: Literal["asc", "desc"] = "desc",
+
 ):
     query = {}
 
@@ -49,7 +54,11 @@ def get_expenses(
     if amount_filter:
         query["amount"] = amount_filter
 
-    return [serialize(doc) for doc in collection.find(query)]
+    skip = (page - 1) * limit
+    direction = 1 if order == "asc" else -1
+
+    cursor = collection.find(query).sort(sort_by, direction).skip(skip).limit(limit)
+    return [serialize(doc) for doc in cursor]
 
 
 @router.get("/{expense_id}", response_model=ExpenseResponse)
