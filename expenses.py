@@ -3,11 +3,13 @@ from bson.errors import InvalidId
 from fastapi import APIRouter, HTTPException, Response, status, Query
 from typing import Literal
 from database import db
+from pymongo import ASCENDING, DESCENDING
 from schemas import ExpenseCreate, ExpenseResponse
 
 router = APIRouter(prefix="/expenses", tags=["Expenses"])
 
 collection = db["expenses"]
+collection.create_index([("category", ASCENDING), ("amount", DESCENDING)])
 
 
 def to_object_id(expense_id: str) -> ObjectId:
