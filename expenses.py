@@ -39,6 +39,8 @@ def get_expenses(
     max_amount: float | None = None,
     amount_eq: float | None = None,
     amount_ne: float | None = None,
+    amount_gt: float | None = None,
+    amount_lt: float | None = None,
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1),
     sort_by: Literal["amount", "date"] = "date",
@@ -59,6 +61,10 @@ def get_expenses(
         amount_filter["$eq"] = amount_eq
     if amount_ne is not None:
         amount_filter["$ne"] = amount_ne
+    if amount_gt is not None:
+        amount_filter["$gt"] = amount_gt
+    if amount_lt is not None:
+        amount_filter["$lt"] = amount_lt
     if amount_filter:
         query["amount"] = amount_filter
 
