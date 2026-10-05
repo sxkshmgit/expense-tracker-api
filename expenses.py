@@ -37,6 +37,8 @@ def get_expenses(
     category: str | None = None,
     min_amount: float | None = None,
     max_amount: float | None = None,
+    amount_eq: float | None = None,
+    amount_ne: float | None = None,
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1),
     sort_by: Literal["amount", "date"] = "date",
@@ -53,12 +55,15 @@ def get_expenses(
         amount_filter["$gte"] = min_amount
     if max_amount is not None:
         amount_filter["$lte"] = max_amount
+    if amount_eq is not None:
+        amount_filter["$eq"] = amount_eq
+    if amount_ne is not None:
+        amount_filter["$ne"] = amount_ne
     if amount_filter:
         query["amount"] = amount_filter
 
     skip = (page - 1) * limit
     direction = 1 if order == "asc" else -1
-
     cursor = collection.find(query).sort(sort_by, direction).skip(skip).limit(limit)
     return [serialize(doc) for doc in cursor]
 
