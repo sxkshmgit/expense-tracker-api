@@ -35,6 +35,8 @@ def create_expense(expense: ExpenseCreate):
 @router.get("", response_model=list[ExpenseResponse])
 def get_expenses(
     category: str | None = None,
+    category_in: str | None = None,
+    category_nin: str | None = None,
     min_amount: float | None = None,
     max_amount: float | None = None,
     amount_eq: float | None = None,
@@ -49,8 +51,15 @@ def get_expenses(
 ):
     query = {}
 
+    category_filter = {}
     if category:
-        query["category"] = category
+        category_filter["$eq"] = category
+    if category_in:
+        category_filter["$in"] = [c.strip() for c in category_in.split(",") if c.strip()]
+    if category_nin:
+        category_filter["$nin"] = [c.strip() for c in category_nin.split(",") if c.strip()]
+    if category_filter:
+        query["category"] = category_filter
 
     amount_filter = {}
     if min_amount is not None:
