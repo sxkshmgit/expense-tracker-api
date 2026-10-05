@@ -62,6 +62,46 @@ def get_expenses(
     cursor = collection.find(query).sort(sort_by, direction).skip(skip).limit(limit)
     return [serialize(doc) for doc in cursor]
 
+@router.get("/summary")
+def get_expense_summary():
+    pipeline = [
+        {
+            "$group": {
+                "_id": None,
+                "total": {"$sum": "$amount"},
+                "average": {"$avg": "$amount"},
+                "highest": {"$max": "$amount"},
+                "lowest": {"$min": "$amount"},
+            }
+        },
+        {"$project": {"_id": 0}},
+    ]
+    result = list(collection.aggregate(pipeline))
+    if not result:
+        return {"total": 0, "average": 0, "highest": 0, "lowest": 0}
+    return result[0]
+
+@router.get("/summary/category")
+def get_category_summary():
+    pipeline = [
+        {
+            "$group": {
+                "_id": "$category",
+                "total": {"$sum": "$amount"},
+                "average": {"$avg": "$amount"},
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "category": "$_id",
+                "total": 1,
+                "average": 1,
+            }
+        },
+        {"$sort": {"total": -1}},
+    ]
+    return list(collection.aggregate(pipeline))
 
 @router.get("/{expense_id}", response_model=ExpenseResponse)
 def get_expense(expense_id: str):
@@ -69,6 +109,7 @@ def get_expense(expense_id: str):
     if doc is None:
         raise HTTPException(status_code=404, detail="Expense not found")
     return serialize(doc)
+
 
 
 @router.put("/{expense_id}", response_model=ExpenseResponse)
