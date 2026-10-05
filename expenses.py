@@ -31,8 +31,25 @@ def create_expense(expense: ExpenseCreate):
 
 
 @router.get("", response_model=list[ExpenseResponse])
-def get_expenses():
-    return [serialize(doc) for doc in collection.find()]
+def get_expenses(
+    category: str | None = None,
+    min_amount: float | None = None,
+    max_amount: float | None = None,
+):
+    query = {}
+
+    if category:
+        query["category"] = category
+
+    amount_filter = {}
+    if min_amount is not None:
+        amount_filter["$gte"] = min_amount
+    if max_amount is not None:
+        amount_filter["$lte"] = max_amount
+    if amount_filter:
+        query["amount"] = amount_filter
+
+    return [serialize(doc) for doc in collection.find(query)]
 
 
 @router.get("/{expense_id}", response_model=ExpenseResponse)
