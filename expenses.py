@@ -9,24 +9,36 @@ from schemas import ExpenseCreate, ExpenseResponse
 router = APIRouter(prefix="/expenses", tags=["Expenses"])
 
 collection = db["expenses"]
+users_collection = db["users"]
 collection.create_index([("category", ASCENDING), ("amount", DESCENDING)])
 
 
-def to_object_id(expense_id: str) -> ObjectId:
+def to_object_id(value: str, detail: str = "Invalid expense id") -> ObjectId:
     try:
-        return ObjectId(expense_id)
+        return ObjectId(value)
     except (InvalidId, TypeError):
-        raise HTTPException(status_code=400, detail="Invalid expense id")
+        raise HTTPException(status_code=400, detail=detail)
 
 
 def serialize(doc: dict) -> dict:
     doc["id"] = str(doc.pop("_id"))
+    if "user_id" in doc:
+        doc["user_id"] = str(doc["user_id"])
     return doc
+
+
+def build_expense_document(expense: ExpenseCreate) -> dict:
+    data = expense.model_dump()
+    user_oid = to_object_id(data["user_id"], "Invalid user id")
+    if users_collection.find_one({"_id": user_oid}) is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    data["user_id"] = user_oid
+    return data
 
 
 @router.post("", response_model=ExpenseResponse, status_code=status.HTTP_201_CREATED)
 def create_expense(expense: ExpenseCreate):
-    data = expense.model_dump()
+    data = build_expense_document(expense)
     result = collection.insert_one(data)
     data["_id"] = result.inserted_id
     return serialize(data)
@@ -51,10 +63,12 @@ def get_expenses(
     limit: int = Query(10, ge=1),
     sort_by: Literal["amount", "date"] = "date",
     order: Literal["asc", "desc"] = "desc",
+    user_id: str | None = None,
 
 ):
     query = {}
-
+    if user_id:
+        query["user_id"] = to_object_id(user_id, "Invalid user id")
     category_filter = {}
     if category:
         category_filter["$eq"] = category
@@ -151,7 +165,8 @@ def get_expense(expense_id: str):
 @router.put("/{expense_id}", response_model=ExpenseResponse)
 def update_expense(expense_id: str, expense: ExpenseCreate):
     oid = to_object_id(expense_id)
-    result = collection.update_one({"_id": oid}, {"$set": expense.model_dump()})
+    data = build_expense_document(expense)
+    result = collection.update_one({"_id": oid}, {"$set": data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Expense not found")
     return serialize(collection.find_one({"_id": oid}))
