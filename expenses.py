@@ -43,6 +43,10 @@ def get_expenses(
     amount_ne: float | None = None,
     amount_gt: float | None = None,
     amount_lt: float | None = None,
+    or_category: str | None = None,
+    or_min_amount: float | None = None,
+    and_category: str | None = None,
+    and_max_amount: float | None = None,
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1),
     sort_by: Literal["amount", "date"] = "date",
@@ -60,7 +64,6 @@ def get_expenses(
         category_filter["$nin"] = [c.strip() for c in category_nin.split(",") if c.strip()]
     if category_filter:
         query["category"] = category_filter
-
     amount_filter = {}
     if min_amount is not None:
         amount_filter["$gte"] = min_amount
@@ -76,7 +79,20 @@ def get_expenses(
         amount_filter["$lt"] = amount_lt
     if amount_filter:
         query["amount"] = amount_filter
-
+    or_conditions = []
+    if or_category:
+        or_conditions.append({"category": or_category})
+    if or_min_amount is not None:
+        or_conditions.append({"amount": {"$gte": or_min_amount}})
+    if or_conditions:
+        query["$or"] = or_conditions
+    and_conditions = []
+    if and_category:
+        and_conditions.append({"category": and_category})
+    if and_max_amount is not None:
+        and_conditions.append({"amount": {"$lte": and_max_amount}})
+    if and_conditions:
+        query["$and"] = and_conditions
     skip = (page - 1) * limit
     direction = 1 if order == "asc" else -1
     cursor = collection.find(query).sort(sort_by, direction).skip(skip).limit(limit)
